@@ -319,11 +319,8 @@ class Operator(object):
     def profile_latency(self, dynamic_symbolic_constraints: Optional[Dict] = None) -> str:
         if dynamic_symbolic_constraints is None:
             dynamic_symbolic_constraints = {}
-        profile_tensors = self.get_profile_tensors(dynamic_symbolic_constraints)
-        latency = self.time_evaluator(*profile_tensors).mean * 1e3
-        # release the memory of profile tensors
-        for tensor in profile_tensors:
-            del tensor
+        profiler = self.kernel.get_profiler()
+        latency = profiler.do_bench()
         return latency
 
     def _forward_from_torch_func(self, *args):
