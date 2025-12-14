@@ -190,8 +190,8 @@ class GemvDequantizeSIMTScheduler(MatmulDequantizeSIMTBaseScheduler):
                 accum_res = T.alloc_local((1,), accum_dtype)
                 reduced_accum_res = T.alloc_local((1,), accum_dtype)
 
-                kr = T.thread_binding(0, reduce_thread, thread="threadIdx.x")
-                ni = T.thread_binding(0, n_partition, thread="threadIdx.y")
+                kr = T.get_thread_binding(0)
+                ni = T.get_thread_binding(1)
 
                 T.import_source(import_source)
 

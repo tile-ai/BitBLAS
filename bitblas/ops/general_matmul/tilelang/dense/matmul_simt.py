@@ -216,7 +216,7 @@ class MatmulFineGrainSIMTScheduler(MatmulSIMTBaseScheduler):
                 B_local = T.alloc_local((local_size_b, micro_size_k), in_dtype)
                 C_local = T.alloc_local((local_size_c,), accum_dtype)
 
-                thread_binding = T.thread_binding(threads, "threadIdx.x")
+                thread_binding = T.get_thread_binding(0)
 
                 warp_m = thread_binding % thread_row_tiles
                 warp_n = thread_binding // thread_row_tiles

@@ -237,7 +237,7 @@ class MatmulMMAScheduler(MatmulBaseScheduler):
                 C_local = T.alloc_local((warp_rows * warp_cols * local_size_c), accum_dtype)
 
                 # Thread-level parallelism for Tensor Cores
-                thread_bindings = T.thread_binding(0, threads, "threadIdx.x")
+                thread_bindings = T.get_thread_binding(0)
 
                 # Apply memory layout optimizations
                 T.annotate_layout({
@@ -452,7 +452,7 @@ class MatmulMMAWeightPropagationScheduler(MatmulMMAScheduler):
                 C_local = T.alloc_local((warp_rows * warp_cols * local_size_c), accum_dtype)
 
                 # Thread-level parallelism for Tensor Cores
-                thread_bindings = T.thread_binding(0, threads, "threadIdx.x")
+                thread_bindings = T.get_thread_binding(0)
 
                 # Apply memory layout optimizations
                 T.annotate_layout({
@@ -708,7 +708,7 @@ class MatmulINT4MMAScheduler(MatmulMMAScheduler):
                 C_local = T.alloc_local((warp_rows * warp_cols * local_size_c), accum_dtype)
 
                 # Thread-level parallelism for Tensor Cores
-                thread_bindings = T.thread_binding(0, threads, "threadIdx.x")
+                thread_bindings = T.get_thread_binding(0)
 
                 # Apply memory layout optimizations
                 T.annotate_layout({
@@ -936,7 +936,7 @@ class MatmulINT4MMAWeightPropagationScheduler(MatmulMMAWeightPropagationSchedule
                 C_local = T.alloc_local((warp_rows * warp_cols * local_size_c), accum_dtype)
 
                 # Thread-level parallelism for Tensor Cores
-                thread_bindings = T.thread_binding(0, threads, "threadIdx.x")
+                thread_bindings = T.get_thread_binding(0)
 
                 # Apply memory layout optimizations
                 T.annotate_layout({

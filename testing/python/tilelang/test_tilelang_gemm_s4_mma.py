@@ -111,7 +111,7 @@ def tl_matmul(
             B_local = T.alloc_local((warp_cols * local_size_b), in_dtype)
             C_local = T.alloc_local((warp_rows * warp_cols * local_size_c), accum_dtype)
 
-            thread_bindings = T.thread_binding(0, threads, "threadIdx.x")
+            thread_bindings = T.get_thread_binding(0)
 
             T.annotate_layout({
                 A_shared: make_swizzle_layout(A_shared),
@@ -304,7 +304,7 @@ def tl_matmul_weight_only_transform(
             B_local = T.alloc_local((warp_cols * local_size_b), in_dtype)
             C_local = T.alloc_local((warp_rows * warp_cols * local_size_c), accum_dtype)
 
-            thread_bindings = T.thread_binding(0, threads, "threadIdx.x")
+            thread_bindings = T.get_thread_binding(0)
 
             T.annotate_layout({
                 A_shared: make_swizzle_layout(A_shared),

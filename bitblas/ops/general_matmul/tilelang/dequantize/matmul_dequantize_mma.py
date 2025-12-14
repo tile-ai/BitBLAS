@@ -360,7 +360,7 @@ class MatmulDequantizeMMAScheduler(MatmulDequantizeBaseScheduler):
                 dequant_qzeros_local = T.alloc_local([local_qzeros_size], storage_dtype)
                 B_dequantize_local = T.alloc_local([local_size], in_dtype)
 
-                tx = T.thread_binding(0, threads, thread="threadIdx.x")
+                tx = T.get_thread_binding(0)
 
                 T.annotate_layout({
                     A_shared: make_swizzled_layout(A_shared),
@@ -704,7 +704,7 @@ class MatmulINT4DequantizeMMAScheduler(MatmulDequantizeMMAScheduler):
                 B_local = T.alloc_local([local_size_compressed], storage_dtype)
                 B_dequantize_local = T.alloc_local([local_size], storage_dtype)
 
-                tx = T.thread_binding(0, threads, thread="threadIdx.x")
+                tx = T.get_thread_binding(0)
 
                 T.annotate_layout({
                     A_shared: make_swizzled_layout(A_shared),

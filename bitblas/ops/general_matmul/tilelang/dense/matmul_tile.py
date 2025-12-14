@@ -390,7 +390,7 @@ def matmul_macro_tensorcore(
             A_local = T.alloc_local((warp_rows * local_size_a), in_dtype)
             B_local = T.alloc_local((warp_cols * local_size_b), in_dtype)
             C_local = T.alloc_local((warp_rows * warp_cols * local_size_c), accum_dtype)
-            thread_bindings = T.thread_binding(0, threads, "threadIdx.x")
+            thread_bindings = T.get_thread_binding(0)
 
             T.annotate_layout({
                 A_shared: make_swizzled_layout(A_shared),
@@ -525,7 +525,7 @@ def matmul_macro_tensorcore_weight_propagation_level_ldmatrix(
             A_local = T.alloc_local((warp_rows * local_size_a), in_dtype)
             B_local = T.alloc_local((warp_cols * local_size_b), in_dtype)
             C_local = T.alloc_local((warp_rows * warp_cols * local_size_c), accum_dtype)
-            thread_bindings = T.thread_binding(0, threads, "threadIdx.x")
+            thread_bindings = T.get_thread_binding(0)
 
             T.annotate_layout({
                 A_shared: make_swizzled_layout(A_shared),

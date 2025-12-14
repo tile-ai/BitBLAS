@@ -659,7 +659,7 @@ class MatmulDequantizeTileLibraryScheduler(MatmulDequantizeBaseScheduler):
                 C_shared = T.alloc_shared([block_M, block_N], out_dtype)
                 C_local = T.alloc_fragment((block_M, block_N), accum_dtype)
 
-                tx = T.thread_binding(0, threads, thread="threadIdx.x")
+                tx = T.get_thread_binding(0)
 
                 T.use_swizzle(10, enable=enable_rasterization)
 

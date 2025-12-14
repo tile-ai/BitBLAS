@@ -227,7 +227,7 @@ class MatmulDequantizeMMAWeightPropagationScheduler(MatmulDequantizeMMAScheduler
                 B_dequantize_frag = T.alloc_local((warp_cols * fragement_size_b), in_dtype)
                 C_frag = T.alloc_local((warp_rows * warp_cols * fragement_size_c), accum_dtype)
 
-                tx = T.thread_binding(0, threads, thread="threadIdx.x")
+                tx = T.get_thread_binding(0)
 
                 T.annotate_layout({
                     A_shared: make_swizzled_layout(A_shared, is_a_smooth),
@@ -917,7 +917,7 @@ class MatmulINT4DequantizeMMAWeightPropagationScheduler(
                 B_local = T.alloc_local([local_size_compressed], storage_dtype)
                 B_dequantize_local = T.alloc_local([local_size], storage_dtype)
 
-                tx = T.thread_binding(0, threads, thread="threadIdx.x")
+                tx = T.get_thread_binding(0)
 
                 T.annotate_layout({
                     A_shared: make_swizzled_layout(A_shared, is_a_smooth),
