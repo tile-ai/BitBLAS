@@ -38,20 +38,18 @@ class LadderPermutate(Operator):
 
         target = self.target
         tl_prim_func = list(self.ir_module.functions.values())[0]
-        print(f"transform_kind: {self.transform_kind}")
-        print(f"self.ir_module: {self.ir_module}")
-        with Target("cuda"):
-            @tilelang.jit(
-                target="cuda",
-                pass_configs={
-                    tilelang.PassConfigKey.TL_DISABLE_TMA_LOWER: True,
-                    tilelang.PassConfigKey.TL_DISABLE_WARP_SPECIALIZED: True,
-                },
-            )
-            def _jit_entry():
-                return tl_prim_func
 
-            self.kernel = _jit_entry()
+        @tilelang.jit(
+            target=target,
+            pass_configs={
+                tilelang.PassConfigKey.TL_DISABLE_TMA_LOWER: True,
+                tilelang.PassConfigKey.TL_DISABLE_WARP_SPECIALIZED: True,
+            },
+        )
+        def _jit_entry():
+            return tl_prim_func
+
+        self.kernel = _jit_entry()
 
     # select implementation based on the Operator config
     def _select_implementation(self):
@@ -68,12 +66,11 @@ class LadderPermutate(Operator):
         )
 
     def forward(self, inp, out=None):
-        inp_cuda = inp.to("cuda")
         if out is None:
             out_shape, out_dtype = self.retrieve_output_shape()
-            out = torch.zeros(out_shape, dtype=out_dtype).to("cuda")
-        self.kernel(inp_cuda, out)
-        return out.to(inp.device)
+            out = torch.zeros(out_shape, dtype=out_dtype).to(inp.device)
+        self.kernel(inp, out)
+        return out
 
     def retrieve_output_shape(self):
         """

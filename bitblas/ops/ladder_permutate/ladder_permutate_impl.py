@@ -67,69 +67,14 @@ def select_implementation(
     args = [inp]
 
     assert transform_kind != 0, "Permute only apply when transform_kind >= 1"
-    if transform_kind >= 1:
-        arg = args[-1]
-
-        inter_warp = te.compute(
-            (M // l, (N // scaling_factor) // r, l, r),
-            lambda i, j, ii, jj: arg[i * l + ii, j * r + jj],
-            name="inter_warp_permutate",
-        )
-        args.append(inter_warp)
-    if transform_kind >= 2:
-        arg = args[-1]
-
-        def fcompute(*args):
-            warp_i, warp_j = args[-2:]
-            spatial_args = args[:-2]
-            permutate_i, permutate_j = intra_index_map.map_indices([warp_i, warp_j])
-            new_index = (*spatial_args, permutate_i, permutate_j)
-            return arg[new_index]
-
-        intra_warp = te.compute(
-            (M // l, (N // scaling_factor) // r, l, r),
-            fcompute,
-            name="intra_warp_permutate",
-        )
-        args.append(intra_warp)
-    if transform_kind >= 3:
-        arg = args[-1]
-
-        ladder_stage3_map_inverse = ladder_stage3_map.inverse([l, r])
-
-        def fcompute(*args):
-            warp_i, warp_j = args[-2:]
-            spatial_args = args[:-2]
-            permutate_i, permutate_j = ladder_stage3_map_inverse.map_indices([warp_i, warp_j])
-            new_index = (*spatial_args, permutate_i, permutate_j)
-            return arg[new_index]
-
-        out = te.compute(
-            (M // l, (N // scaling_factor) // r, l, r),
-            fcompute,
-            name="permutate",
-        )
-        args.append(out)
-    args = [args[0], args[-1]]
-
-    func = te.create_prim_func(args)
-    print(f"func: {func}")
+ 
     if transform_kind == 2:
-        arg = args[-1]
-
-        def fcompute(*args):
-            warp_i, warp_j = args[-2:]
-            spatial_args = args[:-2]
-            permutate_i, permutate_j = intra_index_map.map_indices([warp_i, warp_j])
-            new_index = (*spatial_args, permutate_i, permutate_j)
-            return new_index
-
         @T.prim_func
         def intra_warp_permutate_func(inp: T.Buffer((M, (N // scaling_factor)), dtype=storage_dtype), out: T.Buffer((M // l, (N // scaling_factor) // r, l, r), dtype=storage_dtype)):
-            with T.Kernel(1, ) as _:
-                for i, j, ii ,jj in T.Parallel(M // l, (N // scaling_factor) // r, l, r):
-                    ni, nj, nii, njj = fcompute(i, j, ii, jj)
-                    out[i, j, ii, jj] = inp[ni * l + nii, nj * r + njj]
+            # with T.Kernel(1, ) as _:
+                for i, j, ii ,jj in T.grid(M // l, (N // scaling_factor) // r, l, r):
+                    nii, njj = intra_index_map.map_indices([ii, jj])
+                    out[i, j, ii, jj] = inp[i * l + nii, j * r + njj]
         return IRModule.from_expr(intra_warp_permutate_func)
 
     if transform_kind == 3:
@@ -137,18 +82,13 @@ def select_implementation(
 
         ladder_stage3_map_inverse = ladder_stage3_map.inverse([l, r])
 
-        def fcompute(*args):
-            warp_i, warp_j = args[-2:]
-            spatial_args = args[:-2]
-            new_index = (*spatial_args, permutate_i, permutate_j)
-            return new_index
-
         @T.prim_func
         def ladder_stage3_permutate_func(inp: T.Buffer((M, (N // scaling_factor)), dtype=storage_dtype), out: T.Buffer((M // l, (N // scaling_factor) // r, l, r), dtype=storage_dtype)):
-            with T.Kernel(1, ) as _:
-                for i, j, ii, jj in T.Parallel(M // l, (N // scaling_factor) // r, l, r):
-                    nii, njj = intra_index_map.map_indices([ii, jj])
-                    pii, pjj = ladder_stage3_map_inverse.map_indices([nii, njj])
+            # with T.Kernel(1, ) as _:
+                for i, j, ii, jj in T.grid(M // l, (N // scaling_factor) // r, l, r):
+                    # Keep TE semantics: intra-warp permutation then stage3 inverse.
+                    nii, njj = ladder_stage3_map_inverse.map_indices([ii, jj])
+                    pii, pjj = intra_index_map.map_indices([nii, njj])
                     out[i, j, ii, jj] = inp[i * l + pii, j * r + pjj]
 
         return IRModule.from_expr(ladder_stage3_permutate_func)
