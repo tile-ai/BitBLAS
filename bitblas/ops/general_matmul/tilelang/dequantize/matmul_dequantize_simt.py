@@ -23,7 +23,7 @@ from bitblas.quantization import (
 )
 
 from .base import MatmulDequantizeBaseParams
-
+import tilelang
 # GPU warp configuration for NVIDIA GPUs
 warp_size = 32
 
@@ -534,6 +534,7 @@ class MatmulDequantizeSIMTScheduler(MatmulDequantizeSIMTBaseScheduler):
             chunk=chunk,
         )
 
+    
     def apply_config(
         self,
         block_size_x: Optional[int] = None,

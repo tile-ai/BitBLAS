@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from bitblas.tl.base_hint import BaseTLHint
 from bitblas.base.roller.hint import Hint
 from .matmul_simt import MatmulSIMTBaseScheduler
-
+import tilelang
 
 @dataclass
 class GemvFineGrainSIMTScheduler(MatmulSIMTBaseScheduler):

@@ -25,8 +25,8 @@ from bitblas.utils import (
     tensor_remove_make_int2,
     retrieve_func_from_module,
 )
-from bitblas.utils.tensor_adapter import (
-    np_float2np_bf16,)
+# from bitblas.utils.tensor_adapter import (
+#     np_float2np_bf16,)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -254,13 +254,6 @@ def apply_and_build_parallel(func,
         # TODO(lei):
         # this is a trick to implement rasteration, will be removed in the future
         config = configs[idx]
-
-        @tvm.register_func(func_name="tvm_callback_cuda_postproc", override=True)
-        def tvm_callback_cuda_postproc(code, _):
-            code = tensor_replace_dp4a(code)
-            code = tensor_remove_make_int4(code)
-            code = tensor_remove_make_int2(code)
-            return code
 
         with tvm.transform.PassContext(config={
                 "tir.use_async_copy": True,

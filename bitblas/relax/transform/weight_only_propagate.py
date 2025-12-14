@@ -20,8 +20,7 @@ from bitblas.gpu.matmul_analysis import (
     find_arg_idx_from_buffer_chain,
     layout_propagate_chain,
 )
-from tvm.dlight.base import (
-    analysis,)
+
 from dataclasses import dataclass
 
 
@@ -115,6 +114,7 @@ class WeightOnlyLayoutPropagation:
         return True, tags["intrin_info"]
 
     def transform_matmul(self, g_var: GlobalVar, func: tir.PrimFunc, intrin_info):
+        from tvm.dlight.base import (analysis,)
         from tvm.tir.tensor_intrin.cuda import (  # pylint: disable=import-outside-toplevel
             get_mma_intrin_group,)
 

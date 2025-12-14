@@ -23,11 +23,7 @@ def tir_quant_compress_weight(
     def quant_compress_weight(W: T.Buffer((N, K), input_dtype), QW: T.Buffer((N, QK),
                                                                              storage_dtype)):
         for ax0, ax1, ax2 in T.grid(N, QK, elems_per_byte):
-            with T.block("B"):
-                v0, v1, v2 = T.axis.remap("SSR", [ax0, ax1, ax2])
-                with T.init():
-                    QW[v0, v1] = 0
-                QW[v0, v1] = (QW[v0, v1] | (W[v0, v1 * elems_per_byte + v2] << (bits * v2)))
+            QW[ax0, ax1] = (QW[ax0, ax1] | (W[ax0, ax1 * elems_per_byte + ax2] << (bits * ax2)))
 
     return quant_compress_weight
 

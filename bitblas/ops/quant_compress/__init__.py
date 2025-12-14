@@ -7,7 +7,7 @@ from ..operator import Operator
 from .quant_compress_impl import select_implementation
 from dataclasses import dataclass
 import torch
-
+import tilelang
 
 @dataclass(frozen=True)
 class QuantCompressConfig:
@@ -30,10 +30,10 @@ class QuantCompress(Operator):
         super().__init__(name, config, target)
 
         target = self.target
-        if target.kind.name != "llvm":
+        if target.kind.name != "c":
             raise ValueError("Currently only support llvm target for Permutation")
 
-        self._build_runtime_module(target)
+        self.kernel = tilelang.compile(self._select_implementation()["main"], target=target)
 
     def _select_implementation(self):
         return select_implementation(
@@ -50,7 +50,7 @@ class QuantCompress(Operator):
             out_shape = self.retrieve_qweight_shape()
             out = torch.empty(out_shape, dtype=getattr(torch, self.storage_dtype))
         args = [inp.view((self.M, self.N)), out]
-        self.torch_func(*args)
+        self.kernel(*args)
         return out.view(out_shape)
 
     def retrieve_qweight_shape(self):

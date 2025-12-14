@@ -10,8 +10,8 @@ from bitblas.base.roller.hint import Hint
 from typing import Any, Literal, Optional, Tuple, Union
 from ..operator import OperatorConfig, Operator, OPExecutorCPU, BaseKernelNameGenerator
 from bitblas.base.operator_common import TransformKind, OptimizeStrategy
-from .tirscript.matmul_dequantize_impl import select_implementation as weight_dequantize_implementation
-from .tirscript.matmul_impl import select_implementation as consistent_implementation
+# from .tirscript.matmul_dequantize_impl import select_implementation as weight_dequantize_implementation
+# from .tirscript.matmul_impl import select_implementation as consistent_implementation
 from .tilelang.dense import select_scheduler as consistent_scheduler
 from .tilelang.dequantize import select_scheduler as weight_dequantize_scheduler
 from ...base.utils import tensor_replace_dp4a, tensor_remove_make_int4, tensor_remove_make_int2
@@ -506,7 +506,7 @@ class Matmul(Operator):
             )
             return LadderPermutate(
                 config=ladder_permutate_config,
-                target=tvm.target.Target("llvm"),
+                target=tvm.target.Target("c"),
             )
         return None
 
@@ -525,7 +525,7 @@ class Matmul(Operator):
                 dequantize_bits=self.bit)
             return QuantCompress(
                 config=quant_compress_config,
-                target=tvm.target.Target("llvm"),
+                target=tvm.target.Target("c"),
             )
         return None
 
@@ -544,7 +544,7 @@ class Matmul(Operator):
             )
             return LOP3Permutate(
                 config=lop3_permutate_config,
-                target=tvm.target.Target("llvm"),
+                target=tvm.target.Target("c"),
             )
         return None
 
@@ -717,7 +717,7 @@ class Matmul(Operator):
                 raise ValueError(
                     f"Input size {input_tensor.numel()} is larger than the workspace size {WORKSPACE_SIZE}, please increase the workspace size."
                 )
-            self.ladder_permutate_a._forward_from_prebuild_lib(input_tensor, self.workspace)
+            self.ladder_permutate_a.kernel.adapter._forward_from_prebuild_lib(input_tensor, self.workspace)
             return self.workspace
         return input_tensor
 
@@ -739,16 +739,8 @@ class Matmul(Operator):
         if bias is not None:
             args.append(bias)
         args.append(output)
-
-        if self.lib is None:
-            self._forward_from_torch_func(*args)
-        else:
-            if self.dynamic_range is not None:
-                m = reduce(operator.mul, A.shape[:-1], 1)
-                args.append(m)
-
-            stream = torch.cuda.current_stream(device=A.device)
-            self._forward_from_prebuild_lib(*args, stream=stream.cuda_stream)
+        
+        self.kernel(*args)
 
         return output
 

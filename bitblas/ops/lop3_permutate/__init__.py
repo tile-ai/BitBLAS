@@ -6,7 +6,7 @@ from ..operator import Operator
 from .lop3_permutate_impl import select_implementation
 from dataclasses import dataclass
 import torch
-
+import tilelang
 
 @dataclass(frozen=True)
 class LOP3PermutateConfig:
@@ -29,10 +29,10 @@ class LOP3Permutate(Operator):
         super().__init__(name, config, target)
 
         target = self.target
-        if target.kind.name != "llvm":
+        if target.kind.name != "c":
             raise ValueError("Currently only support llvm target for Permutation")
 
-        self._build_runtime_module(target)
+        self.kernel = tilelang.compile(self._select_implementation()["main"], target=target)
 
     def _select_implementation(self):
         return select_implementation(
@@ -51,7 +51,7 @@ class LOP3Permutate(Operator):
         # reinterpret the input tensor to int32 format
         shape_2dim = self.retrieve_2d_weight_shape()
         args = [arg.view(inp.dtype).view(shape_2dim).view(torch.int32) for arg in [inp, out]]
-        self.torch_func(*args)
+        self.kernel(*args)
         return args[-1].view(out_dtype).view(out_shape)
 
     def retrieve_2d_weight_shape(self):

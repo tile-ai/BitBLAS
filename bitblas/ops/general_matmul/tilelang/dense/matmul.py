@@ -1,5 +1,6 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
+import tilelang
 from bitblas import tvm as tvm
 from typing import Optional, List, Dict
 from tvm.tir import PrimFunc
@@ -28,7 +29,7 @@ from .matmul_mma import (
     MatmulINT4MMAScheduler,
     MatmulINT4MMAWeightPropagationScheduler,
 )
-
+import tilelang
 import logging
 
 logger = logging.getLogger(__name__)
@@ -181,6 +182,7 @@ class MatmulScheduler(MatmulBaseParams):
 
         return dispatched_scheduler.get_hardware_aware_configs(arch, topk=topk)
 
+    
     def apply_config(
         self,
         hint: Optional[BaseTLHint] = None,

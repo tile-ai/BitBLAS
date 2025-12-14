@@ -7,7 +7,7 @@ from bitblas.gpu.matmul_analysis import (
 from typing import Literal
 from tvm import te, IRModule, DataType
 from tvm.tir import IndexMap
-
+from tilelang import language as T
 
 def select_implementation(
     M: int,
@@ -110,6 +110,48 @@ def select_implementation(
             name="permutate",
         )
         args.append(out)
+    args = [args[0], args[-1]]
+
+    func = te.create_prim_func(args)
+    print(f"func: {func}")
+    if transform_kind == 2:
+        arg = args[-1]
+
+        def fcompute(*args):
+            warp_i, warp_j = args[-2:]
+            spatial_args = args[:-2]
+            permutate_i, permutate_j = intra_index_map.map_indices([warp_i, warp_j])
+            new_index = (*spatial_args, permutate_i, permutate_j)
+            return new_index
+
+        @T.prim_func
+        def intra_warp_permutate_func(inp: T.Buffer((M, (N // scaling_factor)), dtype=storage_dtype), out: T.Buffer((M // l, (N // scaling_factor) // r, l, r), dtype=storage_dtype)):
+            with T.Kernel(1, ) as _:
+                for i, j, ii ,jj in T.Parallel(M // l, (N // scaling_factor) // r, l, r):
+                    ni, nj, nii, njj = fcompute(i, j, ii, jj)
+                    out[i, j, ii, jj] = inp[ni * l + nii, nj * r + njj]
+        return IRModule.from_expr(intra_warp_permutate_func)
+
+    if transform_kind == 3:
+        arg = args[-1]
+
+        ladder_stage3_map_inverse = ladder_stage3_map.inverse([l, r])
+
+        def fcompute(*args):
+            warp_i, warp_j = args[-2:]
+            spatial_args = args[:-2]
+            new_index = (*spatial_args, permutate_i, permutate_j)
+            return new_index
+
+        @T.prim_func
+        def ladder_stage3_permutate_func(inp: T.Buffer((M, (N // scaling_factor)), dtype=storage_dtype), out: T.Buffer((M // l, (N // scaling_factor) // r, l, r), dtype=storage_dtype)):
+            with T.Kernel(1, ) as _:
+                for i, j, ii, jj in T.Parallel(M // l, (N // scaling_factor) // r, l, r):
+                    nii, njj = intra_index_map.map_indices([ii, jj])
+                    pii, pjj = ladder_stage3_map_inverse.map_indices([nii, njj])
+                    out[i, j, ii, jj] = inp[i * l + pii, j * r + pjj]
+
+        return IRModule.from_expr(ladder_stage3_permutate_func)
     args = [args[0], args[-1]]
 
     func = te.create_prim_func(args)

@@ -8,8 +8,9 @@ import tilelang.language as T
 from typing import Optional, List
 from tilelang.intrinsics.utils import (
     get_mma_micro_size,
-    make_mma_swizzle_layout as make_swizzle_layout,
 )
+
+from tilelang.intrinsics.utils import make_mma_swizzle_layout as make_swizzled_layout
 
 from bitblas.tl.mma_macro_generator import (TensorCoreIntrinEmitter,
                                             TensorCoreIntrinEmitterWithLadderTransform)
@@ -22,6 +23,8 @@ from dataclasses import dataclass
 from bitblas.ops.general_matmul.tirscript import (matmul_select_implementation)
 from bitblas.tl.base_hint import BaseTLHint
 from .base import MatmulBaseParams
+import tilelang
+
 # GPU warp configuration for NVIDIA GPUs
 warp_size = 32
 
@@ -190,6 +193,7 @@ class MatmulTileLibraryScheduler(MatmulBaseScheduler):
             enable_rasterization=enable_rasterization,
         )
 
+    
     def apply_config(
         self,
         block_M: Optional[int] = None,
@@ -389,8 +393,8 @@ def matmul_macro_tensorcore(
             thread_bindings = T.thread_binding(0, threads, "threadIdx.x")
 
             T.annotate_layout({
-                A_shared: make_swizzle_layout(A_shared),
-                B_shared: make_swizzle_layout(B_shared),
+                A_shared: make_swizzled_layout(A_shared),
+                B_shared: make_swizzled_layout(B_shared),
             })
 
             T.use_swizzle(panel_size=10, enable=enable_rasterization)
@@ -524,8 +528,8 @@ def matmul_macro_tensorcore_weight_propagation_level_ldmatrix(
             thread_bindings = T.thread_binding(0, threads, "threadIdx.x")
 
             T.annotate_layout({
-                A_shared: make_swizzle_layout(A_shared),
-                B_shared: make_swizzle_layout(B_shared),
+                A_shared: make_swizzled_layout(A_shared),
+                B_shared: make_swizzled_layout(B_shared),
             })
 
             T.use_swizzle(panel_size=10, enable=enable_rasterization)

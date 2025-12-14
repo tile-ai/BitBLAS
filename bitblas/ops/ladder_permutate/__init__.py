@@ -6,7 +6,7 @@ from ..operator import Operator
 from .ladder_permutate_impl import select_implementation
 from dataclasses import dataclass
 import torch
-
+import tilelang
 
 @dataclass(frozen=True)
 class LadderPermutateConfig:
@@ -37,12 +37,14 @@ class LadderPermutate(Operator):
         super().__init__(name, config, target)
 
         target = self.target
-        if target.kind.name == "cuda" or target.kind.name == "hip":
-            self.scheduled_ir_module = self.apply_default_schedule(self.ir_module, target)
-            if enable_tuning:
-                self.hardware_aware_finetune()
-        if not from_database:
-            self._build_runtime_module(target)
+        tl_prim_func = list(self.ir_module.functions.values())[0]
+        print(f"transform_kind: {self.transform_kind}")
+        print(f"self.ir_module: {self.ir_module}")
+        with Target("cuda"):
+            self.kernel = tilelang.compile(tl_prim_func, target="cuda", pass_configs={
+                tilelang.PassConfigKey.TL_DISABLE_TMA_LOWER: True,
+                tilelang.PassConfigKey.TL_DISABLE_WARP_SPECIALIZED: True,
+            })
 
     # select implementation based on the Operator config
     def _select_implementation(self):
@@ -59,11 +61,12 @@ class LadderPermutate(Operator):
         )
 
     def forward(self, inp, out=None):
+        inp_cuda = inp.to("cuda")
         if out is None:
             out_shape, out_dtype = self.retrieve_output_shape()
-            out = torch.zeros(out_shape, dtype=out_dtype).to(inp.device)
-        self.torch_func(inp, out)
-        return out
+            out = torch.zeros(out_shape, dtype=out_dtype).to("cuda")
+        self.kernel(inp_cuda, out)
+        return out.to(inp.device)
 
     def retrieve_output_shape(self):
         """

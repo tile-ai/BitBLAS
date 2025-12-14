@@ -29,7 +29,7 @@ from .matmul_dequantize_mma_weight_transform import (
     MatmulDequantizeMMAWeightPropagationScheduler,
     MatmulINT4DequantizeMMAWeightPropagationScheduler,
 )
-
+import tilelang
 import logging
 
 logger = logging.getLogger(__name__)

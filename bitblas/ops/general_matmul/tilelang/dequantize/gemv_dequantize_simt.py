@@ -14,7 +14,7 @@ from bitblas.base.roller.hint import Hint
 from .matmul_dequantize_simt import MatmulDequantizeSIMTBaseScheduler
 from bitblas.quantization import (
     _tir_packed_to_unsigned_convert,)
-
+import tilelang
 
 @dataclass
 class GemvDequantizeSIMTScheduler(MatmulDequantizeSIMTBaseScheduler):
@@ -80,6 +80,7 @@ class GemvDequantizeSIMTScheduler(MatmulDequantizeSIMTBaseScheduler):
             reduce_thread=reduce_thread,
         )
 
+    
     def apply_config(
         self,
         n_partition: Optional[int] = None,

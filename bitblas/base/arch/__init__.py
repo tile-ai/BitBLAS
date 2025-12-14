@@ -14,7 +14,7 @@ def get_arch(target: Union[str, Target] = "cuda") -> TileDevice:
 
     if target.kind.name == "cuda":
         return CUDA(target)
-    elif target.kind.name == "llvm":
+    elif target.kind.name == "c":
         return CPU(target)
     elif target.kind.name == "hip":
         return CDNA(target)

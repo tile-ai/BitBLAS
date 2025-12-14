@@ -8,7 +8,7 @@ import torch
 from torch.utils.dlpack import from_dlpack, to_dlpack
 from math import prod
 
-from tvm.relay import TensorType
+# from tvm.relay import TensorType
 from tvm._ffi.base import _LIB, c_str
 from tvm._ffi._ctypes.types import TVMValue, check_call
 from tvm._ffi.runtime_ctypes import (

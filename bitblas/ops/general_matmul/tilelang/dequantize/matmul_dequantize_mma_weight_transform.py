@@ -7,9 +7,10 @@ import tilelang.language as T
 from typing import Optional, List
 from tilelang.intrinsics.utils import (
     get_mma_micro_size,
-    make_mma_swizzle_layout as make_swizzle_layout,
-    index_to_coordinates,
 )
+from tilelang.intrinsics.utils import make_mma_swizzle_layout as make_swizzled_layout
+
+from tilelang.language.utils import index_to_coordinates
 from bitblas.base.arch import TileDevice
 from bitblas.base.roller.hint import Hint
 from .matmul_dequantize_mma import MatmulDequantizeMMAScheduler
@@ -28,7 +29,7 @@ from bitblas.gpu.matmul_analysis import (
     get_propagate_map,
     get_ladder_stage3_map,
 )
-
+import tilelang
 # GPU warp configuration for NVIDIA GPUs
 warp_size = 32
 
@@ -42,6 +43,7 @@ class MatmulDequantizeMMAWeightPropagationScheduler(MatmulDequantizeMMAScheduler
     class TLHint(MatmulDequantizeMMAScheduler.TLHint):
         hint_type: str = "MatmulDequantizeMMAWeightPropagationScheduler"
 
+    
     def apply_config(
         self,
         block_row_warps: Optional[int] = None,
@@ -228,8 +230,8 @@ class MatmulDequantizeMMAWeightPropagationScheduler(MatmulDequantizeMMAScheduler
                 tx = T.thread_binding(0, threads, thread="threadIdx.x")
 
                 T.annotate_layout({
-                    A_shared: make_swizzle_layout(A_shared, is_a_smooth),
-                    B_shared: make_swizzle_layout(B_shared, is_b_smooth),
+                    A_shared: make_swizzled_layout(A_shared, is_a_smooth),
+                    B_shared: make_swizzled_layout(B_shared, is_b_smooth),
                 })
 
                 T.use_swizzle(10, enable=enable_rasterization)
@@ -741,6 +743,7 @@ class MatmulINT4DequantizeMMAWeightPropagationScheduler(
 
         return serialize_hints_to_configs(roller_hints)
 
+    
     def apply_config(
         self,
         block_row_warps: Optional[int] = None,
@@ -917,8 +920,8 @@ class MatmulINT4DequantizeMMAWeightPropagationScheduler(
                 tx = T.thread_binding(0, threads, thread="threadIdx.x")
 
                 T.annotate_layout({
-                    A_shared: make_swizzle_layout(A_shared, is_a_smooth),
-                    B_shared: make_swizzle_layout(B_shared, is_b_smooth),
+                    A_shared: make_swizzled_layout(A_shared, is_a_smooth),
+                    B_shared: make_swizzled_layout(B_shared, is_b_smooth),
                 })
 
                 T.use_swizzle(10, enable=enable_rasterization)

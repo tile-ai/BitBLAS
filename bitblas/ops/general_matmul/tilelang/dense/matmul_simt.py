@@ -14,7 +14,7 @@ from bitblas.base.arch import TileDevice
 from bitblas.tl.base_hint import BaseTLHint
 from bitblas.base.roller.hint import Hint
 from .base import MatmulBaseParams
-
+import tilelang
 
 @dataclass
 class MatmulSIMTBaseScheduler(MatmulBaseParams):
@@ -149,6 +149,7 @@ class MatmulFineGrainSIMTScheduler(MatmulSIMTBaseScheduler):
             chunk=chunk,
         )
 
+    
     def apply_config(
         self,
         block_size_x: Optional[int] = None,

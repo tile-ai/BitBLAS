@@ -17,11 +17,11 @@ from bitblas.base.base_scheduler import BaseScheduler
 from bitblas.base.tuner import fast_tune, fast_tune_with_dynamic_range
 from bitblas.base.arch import get_arch, TileDevice, is_cuda_arch, is_cdna_arch, is_cpu_arch
 from bitblas.base.roller.hint import Hint
-from bitblas.builder.wrapper import TIRWrapper, TLWrapper
-from bitblas.builder.lib_generator import LibraryGenerator
+# from bitblas.builder.wrapper import TIRWrapper, TLWrapper
+# from bitblas.builder.lib_generator import LibraryGenerator
 from bitblas.common import MAX_ERROR_MESSAGE_LENGTH
 from bitblas.utils import retrieve_func_from_module
-from bitblas.tl.lower import tl_lower
+# from bitblas.tl.lower import tl_lower
 from dataclasses import dataclass
 import logging
 import re
@@ -106,7 +106,7 @@ class Operator(object):
         self.backend = backend
 
         self.scheduled_ir_module: Optional[IRModule] = None
-        self.rt_mod: Optional[Module] = None
+        self.kernel: Optional[Callable] = None
         self.time_evaluator: Optional[Callable] = None
         self.dynamic_range: Optional[Dict] = None
         self.arch: Optional[TileDevice] = get_arch(target) if target else None
@@ -121,16 +121,6 @@ class Operator(object):
 
         self.kernel_name_generator: Optional[BaseKernelNameGenerator] = (
             self.get_kernel_name_generator())
-        self.lib_generator = LibraryGenerator(self.arch)
-
-        if self.is_tir_backend():
-            self.wrapper = TIRWrapper(self.arch)
-        elif self.is_tilelang_backend():
-            self.wrapper = TLWrapper(self.arch)
-        else:
-            raise ValueError(f"Unsupported backend: {self.backend}")
-
-        self.lib: Optional[ctypes.CDLL] = None
 
     def is_tir_backend(self):
         return self.backend == "tir"
@@ -150,92 +140,6 @@ class Operator(object):
             self._build_runtime_module(target)
         return self.rt_mod.imported_modules[0].get_source() if self.rt_mod else None
 
-    def _build_runtime_module(self, target: Target):
-        """
-        Builds the runtime module based on the architecture platform.
-
-        This function attempts to build a runtime module (rt_mod) for the specified target.
-        If the platform is CUDA and an optimized function is available, it tries to build
-        using the optimized function with a specific pass context. Otherwise, it falls back
-        to building with the primary function. After successful build, it initializes a
-        time evaluator for performance measurement.
-
-        Args:
-            target (Target): The compilation target specification.
-
-        Returns:
-            The compiled runtime module or None if the build was unsuccessful.
-        """
-
-        # Initialize rt_mod as None to handle cases where build fails or is skipped
-        rt_mod = None
-
-        # Check if the platform is CUDA and we have an optimized function
-        if is_cuda_arch(self.arch) or is_cdna_arch(self.arch):
-            if self.scheduled_ir_module is None:
-                raise ValueError(f"No optimized function available for platform {self.arch}")
-
-            @tvm.register_func(func_name="tvm_callback_cuda_postproc", override=True)
-            def tvm_callback_cuda_postproc(code, _):
-                return self.post_process(code)
-
-            @tvm.register_func(func_name="tvm_callback_hip_postproc", override=True)
-            def tvm_callback_hip_postproc(code, _):
-                return self.post_process(code)
-
-            try:
-                with tvm.transform.PassContext(
-                        config={
-                            "tir.use_async_copy": True,
-                            "tir.disable_cse_tir": True,
-                            **(self.pass_context if self.pass_context else {}),
-                        }):
-                    if self.is_tir_backend():
-                        rt_mod = tvm.build(self.scheduled_ir_module, target=target)
-                    elif self.is_tilelang_backend():
-                        rt_mod = tl_lower(
-                            self.scheduled_ir_module, target=target, runtime_only=True)
-                    else:
-                        raise ValueError(f"Unsupported backend: {self.backend}")
-            except Exception as build_runtime_error:  # noqa: F841
-                error_message = str(build_runtime_error)
-                # Truncate only if the message exceeds the maximum length
-                if len(error_message) > MAX_ERROR_MESSAGE_LENGTH:
-                    truncated_message = f"{error_message[-MAX_ERROR_MESSAGE_LENGTH:]} [...]"
-                else:
-                    truncated_message = error_message
-
-                logger.debug(
-                    BUILD_RUNTIME_LIBRARY_FAILED_MESSAGE.format(
-                        self.__class__.__name__,
-                        target,
-                        "optimized",
-                        truncated_message,
-                    ))
-        else:
-            # For non-CUDA and non-HIP platforms or when no optimized function is available, build with the primary function
-            rt_mod = tvm.build(self.prim_func, target=target, name=self.name)
-
-        # If the runtime module was successfully built, set up for evaluation
-        if rt_mod is not None:
-            self.rt_mod = rt_mod
-            # Initialize a time evaluator with the built module, specifying the device and the number of runs
-            self.time_evaluator = rt_mod.time_evaluator(
-                rt_mod.entry_name, self.arch.device, number=10)
-            self.torch_func = to_pytorch_func(rt_mod)
-            if is_cuda_arch(self.arch) or is_cdna_arch(self.arch):
-                is_dynamic = (
-                    self.dynamic_range is not None and len(self.scheduled_ir_module.functions) > 1)
-                self.wrapper.assign_optimized_module(self.scheduled_ir_module)
-                wrapped_source = self.wrapper.wrap(
-                    self.get_source(target, kenrel_only=True), is_dynamic)
-                self.lib_generator.update_lib_code(wrapped_source)
-                self.lib_generator.compile_lib(with_tl=self.is_tilelang_backend())
-                self.lib = self.lib_generator.load_lib()
-                self.lib.init()
-            elif not is_cpu_arch(self.arch):
-                raise ValueError(f"Unsupported target: {self.arch}")
-        return rt_mod
 
     def scheduler_with_default(self, scheduler: BaseScheduler) -> Optional[IRModule]:
         scheduled_ir_module = IRModule.from_expr(scheduler.with_default_config())
@@ -249,10 +153,10 @@ class Operator(object):
         with target:
             scheduled_ir_module = (
                 bitblas.ApplyDefaultSchedule(  # pylint: disable=not-callable
-                    bitblas.gpu.Matmul(),
-                    bitblas.gpu.GEMV(),
-                    bitblas.gpu.Reduction(),
-                    bitblas.gpu.GeneralReduction(),
+                    # bitblas.gpu.Matmul(),
+                    # bitblas.gpu.GEMV(),
+                    # bitblas.gpu.Reduction(),
+                    # bitblas.gpu.GeneralReduction(),
                     bitblas.gpu.Fallback(),
                 )(mod_for_opt))
 
@@ -264,26 +168,12 @@ class Operator(object):
         self.scheduled_ir_module = scheduled_ir_module
 
     def _build_default_module(self, target: Target):
-        try:
-            if self.is_tir_backend():
-                scheduled_mod = self.apply_default_schedule(self.ir_module, target)
-            elif self.is_tilelang_backend():
-                scheduled_mod = self.scheduler_with_default(self.scheduler)
-            assert (
-                len(scheduled_mod.get_global_vars()) == 1
-            ), "The optimized module should only have one global variable for default schedule."
-            global_symbol = scheduled_mod.get_global_vars()[0]
-            default_kernal_name = self.kernel_name_generator.generate()
-            func = scheduled_mod[global_symbol].with_attr("global_symbol", default_kernal_name)
-            scheduled_ir_module = tvm.IRModule({default_kernal_name: func})
-            self._update_optimized_mod(scheduled_ir_module)
-        except Exception as apply_schedule_error:
-            self.scheduled_ir_module = None
-            logger.warning(
-                APPLY_SCHEDULE_FAILED_MESSAGE.format(self.__class__.__name__, target, "default",
-                                                     apply_schedule_error))
-
-        self._build_runtime_module(target)
+        mod = self.scheduler_with_default(self.scheduler)
+        tl_prim_func = list(mod.functions.values())[0]
+        self.kernel = tilelang.compile(tl_prim_func, target=target, pass_configs={
+            tilelang.PassConfigKey.TL_DISABLE_TMA_LOWER: True,
+            tilelang.PassConfigKey.TL_DISABLE_WARP_SPECIALIZED: True,
+        })
 
     def post_process(self, code: str) -> str:
         return code
@@ -299,14 +189,7 @@ class Operator(object):
         topk: int = 20,
         parallel_build=True,
     ) -> Tuple[IRModule, Hint]:
-        if self.is_tir_backend():
-            _, best = fast_tune(func_or_scheduler, target, topk=topk, parallel_build=parallel_build)
-            # annotate the best pass context
-            # TODO(lei): actually we should remove this by enable pass through
-            # annotation in the func's attribute.
-            self.pass_context = best.config.pass_context
-            return (best.sch.mod, best.config) if best is not None else (None, None)
-        elif self.is_tilelang_backend():
+        if self.is_tilelang_backend():
             # Finetune the schedule
             _, best = fast_tune(
                 func_or_scheduler,
@@ -315,7 +198,7 @@ class Operator(object):
                 parallel_build=parallel_build,
             )
             # Return the best Config as Hint
-            return (best.sch.mod, best.config) if best is not None else (None, None)
+            return (best.kernel, best.config) if best is not None else (None, None)
         else:
             raise ValueError(f"Unsupported backend: {self.backend}")
 
@@ -364,22 +247,8 @@ class Operator(object):
                     scheduler, target, topk, dynamic_range)
         else:
             func_or_scheduler = (self.prim_func if self.is_tir_backend() else self.scheduler)
-            scheduled_mod, best_hint = self.apply_fast_tuning(
+            self.kernel, best_hint = self.apply_fast_tuning(
                 func_or_scheduler, target, topk, parallel_build=parallel_build)
-
-            if scheduled_mod is None:
-                raise RuntimeError("Failed to apply fast tuning for operator {}.".format(self.name))
-
-            assert (
-                len(scheduled_mod.get_global_vars()) == 1
-            ), "The optimized module should only have one global variable for default schedule."
-            default_kernal_name = self.kernel_name_generator.generate(best_hint)
-            func = retrieve_func_from_module(scheduled_mod).with_attr("global_symbol",
-                                                                      default_kernal_name)
-            scheduled_ir_module = tvm.IRModule({default_kernal_name: func})
-            self._update_optimized_mod(scheduled_ir_module)
-
-        self._build_runtime_module(self.target)
 
     def get_profile_tensors(self, dynamic_symbolic_constraints: Optional[Dict] = None):
         if dynamic_symbolic_constraints is None:

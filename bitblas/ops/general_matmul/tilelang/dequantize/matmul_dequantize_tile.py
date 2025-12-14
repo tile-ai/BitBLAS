@@ -24,7 +24,7 @@ from bitblas.quantization import (
     _tir_u8_to_f8_e4m3_to_f16,
     _tir_packed_to_unsigned_convert_with_zeros,
 )
-
+import tilelang
 from .base import MatmulDequantizeBaseParams
 
 # GPU warp configuration for NVIDIA GPUs
@@ -546,6 +546,7 @@ class MatmulDequantizeTileLibraryScheduler(MatmulDequantizeBaseScheduler):
             enable_rasterization=enable_rasterization,
         )
 
+    
     def apply_config(
         self,
         block_M: Optional[int] = None,

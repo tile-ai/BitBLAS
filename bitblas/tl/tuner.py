@@ -32,19 +32,14 @@ class CompileResult:
     Class to store the result of compilation
     """
 
-    def __init__(self, config, sch, mod: Module):
+    def __init__(self, config, kernel):
         self.config = config
-        self.sch = sch
-        self.mod = mod
-        self.code = mod.imported_modules[0].get_source() if mod else None
+        self.kernel = kernel
         self.latency = 1e9
-        self.time_evaluator = None
 
     def profile(self, data_distribution="uniform"):
-        func = retrieve_func_from_module(self.sch.mod)
-        device = self.config.arch.device
-        profile_tensors = get_dummy_input_arrays(func, device, distribution=data_distribution)
-        latency = self.time_evaluator(*profile_tensors).mean * 1e3
+        profiler = self.kernel.get_profiler()
+        latency = profiler.do_bench()
         return latency
 
 
@@ -104,33 +99,16 @@ def apply_and_build_parallel(scheduler,
         config = configs[idx]
         assert config is not None
 
-        @tvm.register_func(func_name="tvm_callback_cuda_postproc", override=True)
-        def tvm_callback_cuda_postproc(code, _):
-            code = tensor_replace_dp4a(code)
-            code = tensor_remove_make_int4(code)
-            code = tensor_remove_make_int2(code)
-            return code
-
         # Check only have one function in the module
         if len(mod.functions) > 1:
             raise ValueError("Only support one function in the module")
 
         tl_prim_func = list(mod.functions.values())[0]
-
-        with tvm.transform.PassContext(
-                config={
-                    "tir.use_async_copy": True,
-                    "tir.disable_cse_tir": True,
-                    **(config.pass_context if config.pass_context else {})
-                }):
-            rt_mod = tl_lower(tl_prim_func, arch.target, runtime_only=True)
-
-        from tvm.contrib.tar import tar  # Import the tar module
-
-        artifact_path = os.path.join(tempfile.mkdtemp(), "tvm_tmp_mod." + tar.output_format)
-        code = rt_mod.imported_modules[0].get_source()
-        rt_mod.export_library(artifact_path, fcompile=tar)
-        return idx, code, artifact_path
+        kernel = tilelang.compile(tl_prim_func, target=arch.target, pass_configs={
+            tilelang.PassConfigKey.TL_DISABLE_TMA_LOWER: True,
+            tilelang.PassConfigKey.TL_DISABLE_WARP_SPECIALIZED: True,
+        })
+        return idx, kernel
 
     # Use ThreadPoolExecutor for parallel execution
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -146,40 +124,15 @@ def apply_and_build_parallel(scheduler,
 
             ir_module = _scheduled_ir_modules[idx]
             config = configs[idx]
-            try:
-                idx, code, artifact_path = future.result()
-                sch = tvm.tir.Schedule(ir_module)
-
-                if artifact_path is None:
-                    ARTIFACT_NOT_FOUND = f"Apply config {config} failed, artifact path is None"
-                    logger.error(ARTIFACT_NOT_FOUND)
-                    continue
-
-                rt_mod = tvm.runtime.load_module(artifact_path)
-                cpresult = CompileResult(config, sch, rt_mod)
-                timer_cuda_mod = rt_mod.time_evaluator(
-                    rt_mod.entry_name, arch.device, number=num_repeats)
-                cpresult.time_evaluator = timer_cuda_mod
-                cpresult.code = code
-                cpresults.append(cpresult)
-
-            except Exception as e:
-                local_build_error = str(e)
-                if len(local_build_error) > MAX_ERROR_MESSAGE_LENGTH:
-                    local_build_error = (
-                        local_build_error[:MAX_ERROR_MESSAGE_LENGTH] + "\t...\t" +
-                        local_build_error[-MAX_ERROR_MESSAGE_LENGTH:])
-                logger.error(f"An exception occurred for hint {config}: {local_build_error}")
+            idx, kernel = future.result()
+            cpresult = CompileResult(config, kernel)
+            cpresults.append(cpresult)
 
     best = None
     best_latency = 1e9
     for cpresult in cpresults:
         config = cpresult.config
-        try:
-            latency = cpresult.profile(data_distribution=data_distribution)
-        except Exception as e_mesg:
-            logger.debug(f"Evaluation with config failed {e_mesg}")
-            continue
+        latency = cpresult.profile()
         logger.info("Evaluation with config {}".format(config))
         logger.info("Time cost of this config: {:.3f} ms".format(latency))
 
@@ -187,7 +140,6 @@ def apply_and_build_parallel(scheduler,
         if latency < best_latency:
             best_latency = latency
             best = cpresult
-
     return cpresults, best
 
 

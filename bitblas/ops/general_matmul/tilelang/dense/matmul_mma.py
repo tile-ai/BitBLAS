@@ -9,9 +9,9 @@ import tilelang.language as T
 from typing import Optional, List
 from tilelang.intrinsics.utils import (
     get_mma_micro_size,
-    make_mma_swizzle_layout as make_swizzle_layout,
 )
 
+from tilelang.intrinsics.utils import make_mma_swizzle_layout as make_swizzled_layout
 from bitblas.tl.mma_macro_generator import (
     TensorCoreIntrinEmitter,
     TensorCoreIntrinEmitterWithLadderTransform,
@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from bitblas.ops.general_matmul.tirscript import (matmul_select_implementation)
 from bitblas.tl.base_hint import BaseTLHint
 from .matmul_tile import MatmulBaseScheduler
+import tilelang
 
 # GPU warp configuration for NVIDIA GPUs
 warp_size = 32
@@ -141,7 +142,7 @@ class MatmulMMAScheduler(MatmulBaseScheduler):
             num_stages=num_stages,
             enable_rasterization=enable_rasterization,
         )
-
+    
     def apply_config(
         self,
         block_row_warps: Optional[int] = None,
@@ -240,8 +241,8 @@ class MatmulMMAScheduler(MatmulBaseScheduler):
 
                 # Apply memory layout optimizations
                 T.annotate_layout({
-                    A_shared: make_swizzle_layout(A_shared),
-                    B_shared: make_swizzle_layout(B_shared),
+                    A_shared: make_swizzled_layout(A_shared),
+                    B_shared: make_swizzled_layout(B_shared),
                 })
 
                 # Optional rasterization for L2 locality enhancement
@@ -455,8 +456,8 @@ class MatmulMMAWeightPropagationScheduler(MatmulMMAScheduler):
 
                 # Apply memory layout optimizations
                 T.annotate_layout({
-                    A_shared: make_swizzle_layout(A_shared, is_smooth=is_a_smooth),
-                    B_shared: make_swizzle_layout(B_shared, is_smooth=is_b_smooth),
+                    A_shared: make_swizzled_layout(A_shared, is_smooth=is_a_smooth),
+                    B_shared: make_swizzled_layout(B_shared, is_smooth=is_b_smooth),
                 })
 
                 T.use_swizzle(panel_size=10, enable=enable_rasterization)
@@ -610,6 +611,7 @@ class MatmulINT4MMAScheduler(MatmulMMAScheduler):
 
         return serialize_hints_to_configs(roller_hints)
 
+    
     def apply_config(
         self,
         block_row_warps: Optional[int] = None,
@@ -710,8 +712,8 @@ class MatmulINT4MMAScheduler(MatmulMMAScheduler):
 
                 # Apply memory layout optimizations
                 T.annotate_layout({
-                    A_shared: make_swizzle_layout(A_shared),
-                    B_shared: make_swizzle_layout(B_shared),
+                    A_shared: make_swizzled_layout(A_shared),
+                    B_shared: make_swizzled_layout(B_shared),
                 })
 
                 # Optional rasterization for L2 locality enhancement
@@ -826,6 +828,7 @@ class MatmulINT4MMAWeightPropagationScheduler(MatmulMMAWeightPropagationSchedule
 
         return serialize_hints_to_configs(roller_hints)
 
+    
     def apply_config(
         self,
         block_row_warps=2,
@@ -937,8 +940,8 @@ class MatmulINT4MMAWeightPropagationScheduler(MatmulMMAWeightPropagationSchedule
 
                 # Apply memory layout optimizations
                 T.annotate_layout({
-                    A_shared: make_swizzle_layout(A_shared, is_smooth=is_a_smooth),
-                    B_shared: make_swizzle_layout(B_shared, is_smooth=is_b_smooth),
+                    A_shared: make_swizzled_layout(A_shared, is_smooth=is_a_smooth),
+                    B_shared: make_swizzled_layout(B_shared, is_smooth=is_b_smooth),
                 })
 
                 T.use_swizzle(panel_size=10, enable=enable_rasterization)
