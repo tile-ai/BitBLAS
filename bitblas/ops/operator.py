@@ -170,10 +170,18 @@ class Operator(object):
     def _build_default_module(self, target: Target):
         mod = self.scheduler_with_default(self.scheduler)
         tl_prim_func = list(mod.functions.values())[0]
-        self.kernel = tilelang.compile(tl_prim_func, target=target, pass_configs={
-            tilelang.PassConfigKey.TL_DISABLE_TMA_LOWER: True,
-            tilelang.PassConfigKey.TL_DISABLE_WARP_SPECIALIZED: True,
-        })
+
+        @tilelang.jit(
+            target=target,
+            pass_configs={
+                tilelang.PassConfigKey.TL_DISABLE_TMA_LOWER: True,
+                tilelang.PassConfigKey.TL_DISABLE_WARP_SPECIALIZED: True,
+            },
+        )
+        def _jit_entry():
+            return tl_prim_func
+
+        self.kernel = _jit_entry()
 
     def post_process(self, code: str) -> str:
         return code

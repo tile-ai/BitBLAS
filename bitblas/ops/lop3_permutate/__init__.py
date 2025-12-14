@@ -23,16 +23,22 @@ class LOP3Permutate(Operator):
             self,
             config: LOP3PermutateConfig,
             name: str = "permutate",
-            target: Union[str, Target] = "llvm",  # assume to do permutation on cpu.
+            target: Union[str, Target] = "c",  # assume to do permutation on cpu.
     ):
         # consider to warp the arguments to MatmulConfig
         super().__init__(name, config, target)
 
         target = self.target
         if target.kind.name != "c":
-            raise ValueError("Currently only support llvm target for Permutation")
+            raise ValueError("Currently only support c target for Permutation")
 
-        self.kernel = tilelang.compile(self._select_implementation()["main"], target=target)
+        tl_prim_func = self._select_implementation()["main"]
+
+        @tilelang.jit(target=target)
+        def _jit_entry():
+            return tl_prim_func
+
+        self.kernel = _jit_entry()
 
     def _select_implementation(self):
         return select_implementation(

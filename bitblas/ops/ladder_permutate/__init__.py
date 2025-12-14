@@ -41,10 +41,17 @@ class LadderPermutate(Operator):
         print(f"transform_kind: {self.transform_kind}")
         print(f"self.ir_module: {self.ir_module}")
         with Target("cuda"):
-            self.kernel = tilelang.compile(tl_prim_func, target="cuda", pass_configs={
-                tilelang.PassConfigKey.TL_DISABLE_TMA_LOWER: True,
-                tilelang.PassConfigKey.TL_DISABLE_WARP_SPECIALIZED: True,
-            })
+            @tilelang.jit(
+                target="cuda",
+                pass_configs={
+                    tilelang.PassConfigKey.TL_DISABLE_TMA_LOWER: True,
+                    tilelang.PassConfigKey.TL_DISABLE_WARP_SPECIALIZED: True,
+                },
+            )
+            def _jit_entry():
+                return tl_prim_func
+
+            self.kernel = _jit_entry()
 
     # select implementation based on the Operator config
     def _select_implementation(self):

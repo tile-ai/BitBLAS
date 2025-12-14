@@ -104,10 +104,18 @@ def apply_and_build_parallel(scheduler,
             raise ValueError("Only support one function in the module")
 
         tl_prim_func = list(mod.functions.values())[0]
-        kernel = tilelang.compile(tl_prim_func, target=arch.target, pass_configs={
-            tilelang.PassConfigKey.TL_DISABLE_TMA_LOWER: True,
-            tilelang.PassConfigKey.TL_DISABLE_WARP_SPECIALIZED: True,
-        })
+
+        @tilelang.jit(
+            target=arch.target,
+            pass_configs={
+                tilelang.PassConfigKey.TL_DISABLE_TMA_LOWER: True,
+                tilelang.PassConfigKey.TL_DISABLE_WARP_SPECIALIZED: True,
+            },
+        )
+        def _jit_entry():
+            return tl_prim_func
+
+        kernel = _jit_entry()
         return idx, kernel
 
     # Use ThreadPoolExecutor for parallel execution

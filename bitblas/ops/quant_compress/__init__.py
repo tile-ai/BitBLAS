@@ -33,7 +33,13 @@ class QuantCompress(Operator):
         if target.kind.name != "c":
             raise ValueError("Currently only support llvm target for Permutation")
 
-        self.kernel = tilelang.compile(self._select_implementation()["main"], target=target)
+        tl_prim_func = self._select_implementation()["main"]
+
+        @tilelang.jit(target=target)
+        def _jit_entry():
+            return tl_prim_func
+
+        self.kernel = _jit_entry()
 
     def _select_implementation(self):
         return select_implementation(
