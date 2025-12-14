@@ -99,8 +99,8 @@ class MatmulDequantizeBaseScheduler(MatmulDequantizeBaseParams):
 
         dequant_func = None
 
-        def naive_cast_dequant(x):
-            return x.astype(in_dtype)
+        def naive_cast_dequant(nbit: int, val: tvm.tir.PrimExpr, pos: tvm.tir.PrimExpr, dtype: str):
+            return val.astype(in_dtype)
 
         if with_zeros and zeros_mode == "quantized":
             dequant_func = _tir_packed_to_unsigned_convert_with_zeros(storage_type, storage_nbit)
