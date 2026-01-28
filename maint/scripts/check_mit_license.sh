@@ -10,7 +10,7 @@ pushd "${PWD}/../../" > /dev/null
 
 EXITCODE=0
 
-for SRC_FILE in $(find . -path './3rdparty' -prune -false -o -path './build' -prune -false -o -type f -not -name '*apply_mit_license.sh' \
+for SRC_FILE in $(find . -path './build' -prune -false -o -type f -not -name '*apply_mit_license.sh' \
     -not -name '*check_mit_license.sh' -and \( -name 'CMakeLists.txt' -or -name '*.cpp' -or -name '*.cu' -or -name '*.h'  -or -name '*.hpp' \
     -or -name '*.py' -or -name '*.sh' -or -name '*.dockerfile' -or -name '*.yaml' \) ); do
     

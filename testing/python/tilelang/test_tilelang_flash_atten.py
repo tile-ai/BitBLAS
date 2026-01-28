@@ -71,7 +71,7 @@ def flashattn_tilelang(batch, heads, seq_len, dim, trans_K, dtypeQKV, dtypeAccu,
     mod, params = tl_lower(tl_prim_func)
     mod = TLProfiler(mod, params, [3], tilelang.TensorSupplyType.Normal)
     from flash_attn.flash_attn_interface import flash_attn_func
-    # TODO Now hack to internal function get the same input, may need to modify 3rdparty:tvm.tl.utils
+    # TODO Now hack to internal function get the same input, may need to modify tvm.tl.utils
     ins = mod._get_inputs()
     tilelang_res = mod(*ins)
     Q, K, V = ins[0], ins[1], ins[2]

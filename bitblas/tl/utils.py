@@ -18,7 +18,7 @@ from .mfma_layout import make_mfma_swizzle_layout  # noqa: F401
 
 
 # the original implementation and insight is from the following code snippet
-# 3rdparty/tvm/python/tvm/tir/tensor_intrin/cuda.py#get_ldmatrix_intrin
+# tvm/python/tvm/tir/tensor_intrin/cuda.py#get_ldmatrix_intrin
 def get_ldmatrix_offset(
     matrix: Literal["A", "B"],
     row_idx,

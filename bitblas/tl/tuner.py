@@ -132,7 +132,11 @@ def apply_and_build_parallel(scheduler,
 
             ir_module = _scheduled_ir_modules[idx]
             config = configs[idx]
-            idx, kernel = future.result()
+            try:
+                idx, kernel = future.result()
+            except Exception as e:
+                logger.error(f"Build failed for idx {idx}: {e}")
+                continue
             cpresult = CompileResult(config, kernel)
             cpresults.append(cpresult)
 

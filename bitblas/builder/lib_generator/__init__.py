@@ -67,29 +67,14 @@ class LibraryGenerator(object):
             raise ValueError(f"Unsupported platform: {platform}")
 
         if with_tl:
-            install_tilelang_path = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "../..", "3rdparty", "tilelang")
-            develop_tilelang_path = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "../../..", "3rdparty", "tilelang")
-
-            tilelang_root = next((path for path in [install_tilelang_path, develop_tilelang_path]
-                                  if os.path.exists(path) and path not in sys.path), None)
-
-            if "TL_TEMPLATE_PATH " in os.environ:
+            if "TL_TEMPLATE_PATH" in os.environ:
                 tl_template_path = os.environ["TL_TEMPLATE_PATH"]
-            else:
-                tl_template_path = osp.abspath(osp.join(tilelang_root, "src"))
+                command += ["-I" + tl_template_path]
 
-            tl_template_path = osp.abspath(osp.join(tilelang_root, "src"))
             if "TL_CUTLASS_PATH" in os.environ:
                 cutlass_path = os.environ["TL_CUTLASS_PATH"]
-            else:
-                cutlass_path = osp.abspath(osp.join(tilelang_root, "3rdparty/cutlass/include"))
+                command += ["-I" + cutlass_path]
 
-            command += [
-                "-I" + tl_template_path,
-                "-I" + cutlass_path,
-            ]
             command += ["-diag-suppress=20013"]
         command += ["-o", libpath]
 
